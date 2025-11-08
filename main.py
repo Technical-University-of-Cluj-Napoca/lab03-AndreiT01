@@ -1,42 +1,75 @@
+import pygame
 from utils import *
 from grid import Grid
 from searching_algorithms import *
 
+pygame.font.init()
+FONT = pygame.font.SysFont('Arial', 18)
+GREEN_BG = (0, 200, 0)
+
+ALGORITHMS = {
+    pygame.K_1: (bfs, "Breadth-First Search (BFS)"),
+    pygame.K_2: (dfs, "Depth-First Search (DFS)"),
+    pygame.K_3: (ucs, "Uniform Cost Search (UCS/Dijkstra)"),
+    pygame.K_4: (greedy_search, "Greedy Search"),
+    pygame.K_5: (astar, "A* Search"),
+    pygame.K_6: (dls, "Depth-Limited Search (DLS, Limit=20)"),
+    pygame.K_7: (iddfs, "Iterative Deepening DFS (IDDFS)"),
+    pygame.K_8: (ida_star, "Iterative Deepening A* (IDA*)"),
+}
+
 if __name__ == "__main__":
-    # setting up how big will be the display window
+    pygame.init()
+    
     WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 
-    # set a caption for the window
     pygame.display.set_caption("Path Visualizing Algorithm")
 
-    ROWS = 50  # number of rows
-    COLS = 50  # number of columns
+    ROWS = 50 
+    COLS = 50 
+    
     grid = Grid(WIN, ROWS, COLS, WIDTH, HEIGHT)
 
     start = None
     end = None
+    
+    selected_algorithm_func = ALGORITHMS[pygame.K_1][0] 
+    selected_algorithm_name = ALGORITHMS[pygame.K_1][1]
+    print(f"Algorithm selected: {selected_algorithm_name} (Press 1-8 to change)")
 
-    # flags for running the main loop
     run = True
     started = False
 
     while run:
-        grid.draw()  # draw the grid and its spots
+        WIN.fill(GREEN_BG) 
+        
+        pygame.display.set_caption(f"Path Visualizing Algorithm | Current: {selected_algorithm_name} | SPACE to Run, C to Clear")
+        
+        grid.draw() 
+        
+        text_surface = FONT.render('Press 1-8 to choose algorithm', True, COLORS['BLACK'])
+        WIN.blit(text_surface, (10, 10))
+        
+        pygame.display.update()
+
         for event in pygame.event.get():
-            # verify what events happened
             if event.type == pygame.QUIT:
                 run = False
 
             if started:
-                # do not allow any other interaction if the algorithm has started
-                continue  # ignore other events if algorithm started
+                continue
 
-            if pygame.mouse.get_pressed()[0]:  # LEFT CLICK
+            if pygame.mouse.get_pressed()[0]:
                 pos = pygame.mouse.get_pos()
-                row, col = grid.get_clicked_pos(pos)
+                
+                if hasattr(grid, 'get_clicked_pos'):
+                    row, col = grid.get_clicked_pos(pos)
+                else:
+                    cell_size = WIDTH // ROWS
+                    row, col = pos[1] // cell_size, pos[0] // cell_size
 
                 if row >= ROWS or row < 0 or col >= COLS or col < 0:
-                    continue  # ignore clicks outside the grid
+                    continue
 
                 spot = grid.grid[row][col]
                 if not start and spot != end:
@@ -48,9 +81,15 @@ if __name__ == "__main__":
                 elif spot != end and spot != start:
                     spot.make_barrier()
 
-            elif pygame.mouse.get_pressed()[2]:  # RIGHT CLICK
+            elif pygame.mouse.get_pressed()[2]:
                 pos = pygame.mouse.get_pos()
-                row, col = grid.get_clicked_pos(pos)
+                
+                if hasattr(grid, 'get_clicked_pos'):
+                    row, col = grid.get_clicked_pos(pos)
+                else:
+                    cell_size = WIDTH // ROWS
+                    row, col = pos[1] // cell_size, pos[0] // cell_size
+                    
                 spot = grid.grid[row][col]
                 spot.reset()
 
@@ -60,21 +99,34 @@ if __name__ == "__main__":
                     end = None
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and not started:
-                    # run the algorithm
+                if event.key in ALGORITHMS:
+                    selected_algorithm_func, selected_algorithm_name = ALGORITHMS[event.key]
+                    
+                    if start and end and hasattr(grid, 'reset_grid_state'):
+                        grid.reset_grid_state()
+                    
+                    print(f"Algorithm selected: {selected_algorithm_name}")
+                    
+                elif event.key == pygame.K_SPACE and not started:
+                    if not start or not end:
+                        print("Error: Please set both Start and End points.")
+                        continue
+                        
+                    started = True
+                    print(f"Running {selected_algorithm_name}...")
+                    
                     for row in grid.grid:
                         for spot in row:
                             spot.update_neighbors(grid.grid)
-                    # here you can call the algorithms
-                    # bfs(lambda: grid.draw(), grid, start, end)
-                    # dfs(lambda: grid.draw(), grid, start, end)
-                    # astar(lambda: grid.draw(), grid, start, end)
-                    # ... and the others?
+                            
+                    selected_algorithm_func(lambda: grid.draw(), grid, start, end)
+                    
                     started = False
 
-                if event.key == pygame.K_c:
+                elif event.key == pygame.K_c:
                     print("Clearing the grid...")
                     start = None
                     end = None
                     grid.reset()
+                    
     pygame.quit()
